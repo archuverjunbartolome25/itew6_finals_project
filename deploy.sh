@@ -61,6 +61,9 @@ check_auth() {
 prepare_app() {
     log_info "Preparing application for deployment..."
     
+    # Change to backend directory
+    cd backend
+    
     # Install Composer dependencies
     log_info "Installing Composer dependencies..."
     composer install --no-dev --optimize-autoloader --prefer-dist
@@ -92,6 +95,9 @@ prepare_app() {
     # Create storage link
     log_info "Creating storage link..."
     php artisan storage:link
+    
+    # Return to root directory
+    cd ..
     
     log_success "Application preparation completed"
 }

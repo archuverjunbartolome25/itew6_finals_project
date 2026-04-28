@@ -1,6 +1,9 @@
 name: finals-backend
 type: laravel
 
+# Laravel application directory
+root: backend
+
 # Build configuration
 build:
   # PHP version
