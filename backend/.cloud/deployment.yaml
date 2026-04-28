@@ -1,0 +1,190 @@
+name: finals-backend
+type: laravel
+
+# Build configuration
+build:
+  # PHP version
+  php: '8.2'
+  
+  # Node.js version for frontend assets
+  node: '20'
+  
+  # Composer optimization
+  composer:
+    optimize: true
+    no-dev: true
+    
+  # NPM build
+  npm:
+    install: true
+    build: true
+    
+  # Laravel specific commands
+  artisan:
+    - config:cache
+    - route:cache
+    - view:cache
+    - migrate --force
+
+# Environment variables
+environment:
+  APP_NAME: 'FINALS System'
+  APP_ENV: production
+  APP_DEBUG: false
+  APP_URL: '${APP_URL}'
+  
+  # Database (will be provided by Laravel Cloud)
+  DB_CONNECTION: mysql
+  DB_HOST: '${DB_HOST}'
+  DB_PORT: '${DB_PORT}'
+  DB_DATABASE: '${DB_DATABASE}'
+  DB_USERNAME: '${DB_USERNAME}'
+  DB_PASSWORD: '${DB_PASSWORD}'
+  
+  # Cache and session
+  CACHE_DRIVER: redis
+  SESSION_DRIVER: redis
+  QUEUE_CONNECTION: redis
+  
+  # Redis (will be provided by Laravel Cloud)
+  REDIS_HOST: '${REDIS_HOST}'
+  REDIS_PASSWORD: '${REDIS_PASSWORD}'
+  REDIS_PORT: '${REDIS_PORT}'
+  
+  # File storage
+  FILESYSTEM_DISK: s3
+  
+  # Mail (configure as needed)
+  MAIL_MAILER: smtp
+  MAIL_HOST: '${MAIL_HOST}'
+  MAIL_PORT: '${MAIL_PORT}'
+  MAIL_USERNAME: '${MAIL_USERNAME}'
+  MAIL_PASSWORD: '${MAIL_PASSWORD}'
+  MAIL_ENCRYPTION: '${MAIL_ENCRYPTION}'
+  MAIL_FROM_ADDRESS: '${MAIL_FROM_ADDRESS}'
+  MAIL_FROM_NAME: '${MAIL_FROM_NAME}'
+  
+  # Security
+  BCRYPT_ROUNDS: 12
+  
+  # Logging
+  LOG_CHANNEL: stack
+  LOG_LEVEL: debug
+  
+  # Maintenance
+  APP_MAINTENANCE_DRIVER: redis
+
+# Services
+services:
+  # MySQL database
+  database:
+    type: mysql
+    version: '8.0'
+    size: small
+    
+  # Redis for cache and sessions
+  cache:
+    type: redis
+    version: '7.0'
+    size: small
+    
+  # Queue worker
+  queue:
+    type: worker
+    command: 'php artisan queue:work --sleep=3 --tries=3 --max-time=300'
+
+# Storage
+storage:
+  # S3 compatible storage
+  disks:
+    s3:
+      driver: s3
+      key: '${AWS_ACCESS_KEY_ID}'
+      secret: '${AWS_SECRET_ACCESS_KEY}'
+      region: '${AWS_DEFAULT_REGION}'
+      bucket: '${AWS_BUCKET}'
+
+# Health checks
+health:
+  # Application health check
+  path: /health
+  method: GET
+  expected_status: 200
+  
+  # Database connection check
+  database:
+    connection: mysql
+    timeout: 5
+
+# Scaling
+scaling:
+  # Auto-scaling configuration
+  min_instances: 1
+  max_instances: 10
+  target_cpu: 70
+  target_memory: 80
+
+# Security
+security:
+  # SSL/TLS
+  ssl: true
+  
+  # Firewall rules
+  firewall:
+    - allow: 80
+    - allow: 443
+    - allow: 22 # SSH for debugging
+  
+  # Environment security
+  encrypt_env: true
+
+# Monitoring
+monitoring:
+  # Application metrics
+  metrics: true
+  
+  # Error tracking
+  error_tracking: true
+  
+  # Performance monitoring
+  performance: true
+
+# Deployment hooks
+hooks:
+  # Pre-deployment
+  pre_deploy:
+    - php artisan down
+    - php artisan config:clear
+    - php artisan cache:clear
+    
+  # Post-deployment
+  post_deploy:
+    - php artisan migrate --force
+    - php artisan config:cache
+    - php artisan route:cache
+    - php artisan view:cache
+    - php artisan up
+    
+  # Failed deployment
+  deploy_failed:
+    - php artisan up
+    - echo "Deployment failed - application restored"
+
+# Custom domains
+domains:
+  - your-domain.com  # Replace with your actual domain
+  - www.your-domain.com  # Replace with your actual domain
+
+# Backup configuration
+backup:
+  # Database backups
+  database:
+    enabled: true
+    schedule: '0 2 * * *' # Daily at 2 AM
+    retention: 30 # Keep 30 days
+    
+  # Storage backups
+  storage:
+    enabled: true
+    schedule: '0 3 * * 0' # Weekly on Sunday at 3 AM
+    retention: 4 # Keep 4 weeks

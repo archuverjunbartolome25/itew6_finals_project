@@ -1,0 +1,186 @@
+name: Deploy to Laravel Cloud
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: finals_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+      
+      redis:
+        image: redis:7.0
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, mysql, bcmath, zip, gd
+        coverage: xdebug
+
+    - name: Copy environment file
+      run: cp .env.example .env
+
+    - name: Install Composer dependencies
+      run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: Generate application key
+      run: php artisan key:generate
+
+    - name: Set up database
+      run: |
+        php artisan config:cache
+        php artisan migrate --force
+        php artisan db:seed --force
+
+    - name: Run tests
+      run: |
+        php artisan test --coverage-clover=coverage.xml
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, mysql, bcmath, zip, gd
+
+    - name: Install Composer dependencies
+      run: composer install --no-dev --prefer-dist --optimize-autoloader
+
+    - name: Install NPM dependencies
+      run: npm ci
+
+    - name: Build frontend assets
+      run: npm run build
+
+    - name: Optimize for production
+      run: |
+        php artisan config:cache
+        php artisan route:cache
+        php artisan view:cache
+
+    - name: Create deployment artifact
+      run: |
+        tar -czf ../deployment-artifact.tar.gz \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='tests' \
+          --exclude='.github' \
+          --exclude='docker-compose.yml' \
+          --exclude='Dockerfile' \
+          --exclude='.env' \
+          .
+
+    - name: Upload deployment artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-artifact
+        path: ../deployment-artifact.tar.gz
+
+  deploy:
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download deployment artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: deployment-artifact
+
+    - name: Extract deployment artifact
+      run: tar -xzf deployment-artifact.tar.gz
+
+    - name: Deploy to Laravel Cloud
+      run: |
+        # Install Laravel Cloud CLI
+        curl -sSL https://laravel.cloud/install | bash
+        
+        # Authenticate with Laravel Cloud
+        laravel-cloud login --token=${{ secrets.LARAVEL_CLOUD_TOKEN }}
+        
+        # Deploy application
+        laravel-cloud deploy --force
+        
+      env:
+        LARAVEL_CLOUD_TOKEN: ${{ secrets.LARAVEL_CLOUD_TOKEN }}
+
+  health-check:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Wait for deployment
+      run: sleep 30
+
+    - name: Health check
+      run: |
+        # Wait for the application to be ready
+        for i in {1..30}; do
+          if curl -f https://your-app.laravelcloud.com/health; then
+            echo "Application is healthy!"
+            break
+          else
+            echo "Waiting for application to be ready... ($i/30)"
+            sleep 10
+          fi
+        done
+
+  notify:
+    needs: [deploy, health-check]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify deployment status
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          Deployment Status: ${{ job.status }}
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

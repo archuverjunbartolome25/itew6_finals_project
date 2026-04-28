@@ -1,0 +1,112 @@
+# Environment-specific configuration for Laravel Cloud
+
+# Production environment
+production:
+  name: "FINALS System - Production"
+  url: "https://your-app.laravelcloud.com"
+  
+  # Database configuration
+  database:
+    connection: mysql
+    host: "${DB_HOST}"
+    port: "${DB_PORT}"
+    database: "${DB_DATABASE}"
+    username: "${DB_USERNAME}"
+    password: "${DB_PASSWORD}"
+    
+  # Cache configuration
+  cache:
+    driver: redis
+    host: "${REDIS_HOST}"
+    port: "${REDIS_PORT}"
+    password: "${REDIS_PASSWORD}"
+    
+  # Session configuration
+  session:
+    driver: redis
+    host: "${REDIS_HOST}"
+    port: "${REDIS_PORT}"
+    password: "${REDIS_PASSWORD}"
+    lifetime: 120
+    
+  # Queue configuration
+  queue:
+    driver: redis
+    host: "${REDIS_HOST}"
+    port: "${REDIS_PORT}"
+    password: "${REDIS_PASSWORD}"
+    
+  # Mail configuration
+  mail:
+    driver: smtp
+    host: "${MAIL_HOST}"
+    port: "${MAIL_PORT}"
+    username: "${MAIL_USERNAME}"
+    password: "${MAIL_PASSWORD}"
+    encryption: "${MAIL_ENCRYPTION}"
+    from:
+      address: "${MAIL_FROM_ADDRESS}"
+      name: "${MAIL_FROM_NAME}"
+      
+  # Storage configuration
+  storage:
+    default: s3
+    s3:
+      key: "${AWS_ACCESS_KEY_ID}"
+      secret: "${AWS_SECRET_ACCESS_KEY}"
+      region: "${AWS_DEFAULT_REGION}"
+      bucket: "${AWS_BUCKET}"
+      
+  # Security configuration
+  security:
+    trusted_proxies: "${TRUSTED_PROXIES}"
+    trusted_hosts: "${TRUSTED_HOSTS}"
+    cors:
+      allowed_origins: "${CORS_ALLOWED_ORIGINS}"
+      allowed_methods: "${CORS_ALLOWED_METHODS}"
+      allowed_headers: "${CORS_ALLOWED_HEADERS}"
+
+# Staging environment
+staging:
+  name: "FINALS System - Staging"
+  url: "https://your-app-staging.laravelcloud.com"
+  
+  # Inherit from production with overrides
+  inherits: production
+  
+  # Staging-specific overrides
+  app_debug: true
+  log_level: debug
+  
+  # Use staging database
+  database:
+    database: "${STAGING_DB_DATABASE}"
+    username: "${STAGING_DB_USERNAME}"
+    password: "${STAGING_DB_PASSWORD}"
+
+# Development environment
+development:
+  name: "FINALS System - Development"
+  url: "https://your-app-dev.laravelcloud.com"
+  
+  # Development-specific settings
+  app_debug: true
+  app_env: development
+  log_level: debug
+  
+  # Use SQLite for development
+  database:
+    connection: sqlite
+    database: database.sqlite
+    
+  # Use file cache for development
+  cache:
+    driver: file
+    
+  # Use file sessions for development
+  session:
+    driver: file
+    
+  # Use sync queue for development
+  queue:
+    driver: sync
